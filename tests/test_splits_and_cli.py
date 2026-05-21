@@ -41,6 +41,42 @@ def test_split_checker_catches_time_window_leak(tmp_path):
     assert any(issue.code == "split_time_after_end" for issue in report.failures)
 
 
+def test_split_checker_normalizes_naive_iso_timestamps(tmp_path):
+    manifest = parse_manifest(
+        {
+            "schema_version": "1.0",
+            "dataset_id": "demo",
+            "event_file": "events.jsonl",
+            "event_format": "jsonl",
+            "event_time_field": "observed_at",
+            "sequence_field": "sequence",
+            "entity_keys": ["device_id"],
+            "event_id_field": "event_id",
+            "split_field": "split",
+            "splits": {
+                "train": {
+                    "start": "2026-01-01T00:00:00Z",
+                    "end": "2026-01-01T00:02:00Z",
+                }
+            },
+        },
+        root=tmp_path,
+    )
+    rows = [
+        {
+            "event_id": "one",
+            "device_id": "a",
+            "sequence": 1,
+            "observed_at": "2026-01-01T00:01:00",
+            "split": "train",
+        }
+    ]
+
+    report = validate_splits(rows, manifest)
+
+    assert report.passed, report.to_dict()
+
+
 def test_split_checker_catches_entity_leakage_when_disabled(tmp_path):
     manifest = parse_manifest(
         {

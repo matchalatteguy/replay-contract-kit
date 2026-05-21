@@ -165,6 +165,9 @@ def _parse_time(value: Any) -> datetime | None:
         text = str(value)
         if text.endswith("Z"):
             text = f"{text[:-1]}+00:00"
-        return datetime.fromisoformat(text)
+        parsed = datetime.fromisoformat(text)
+        if parsed.tzinfo is None:
+            return parsed.replace(tzinfo=timezone.utc)
+        return parsed.astimezone(timezone.utc)
     except (TypeError, ValueError, OSError):
         return None

@@ -287,7 +287,10 @@ def _coerce_time(value: Any, row_number: int, failures: list[ValidationIssue]) -
         text = str(value)
         if text.endswith("Z"):
             text = f"{text[:-1]}+00:00"
-        return datetime.fromisoformat(text)
+        parsed = datetime.fromisoformat(text)
+        if parsed.tzinfo is None:
+            return parsed.replace(tzinfo=timezone.utc)
+        return parsed.astimezone(timezone.utc)
     except (TypeError, ValueError, OSError):
         failures.append(
             ValidationIssue(

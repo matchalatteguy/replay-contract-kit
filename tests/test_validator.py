@@ -102,3 +102,27 @@ def test_validate_events_catches_out_of_order_time(tmp_path):
 
     assert not report.passed
     assert any(issue.code == "non_monotonic_event_time" for issue in report.failures)
+
+
+def test_validate_events_normalizes_naive_iso_timestamps(tmp_path):
+    manifest = _manifest(tmp_path)
+    rows = [
+        {
+            "event_id": "one",
+            "device_id": "a",
+            "sequence": 1,
+            "observed_at": "2026-01-01T00:00:00Z",
+            "split": "train",
+        },
+        {
+            "event_id": "two",
+            "device_id": "a",
+            "sequence": 2,
+            "observed_at": "2026-01-01T00:01:00",
+            "split": "train",
+        },
+    ]
+
+    report = validate_events(rows, manifest)
+
+    assert report.passed, report.to_dict()
