@@ -1,0 +1,5 @@
+{"device_id": "sensor-a", "event_id": "evt-001", "event_type": "reading", "observed_at": "2026-01-01T00:00:10Z", "sequence": 1, "split": "train", "value": 20.1}
+{"device_id": "sensor-a", "event_id": "evt-002", "event_type": "reading", "observed_at": "2026-01-01T00:01:10Z", "sequence": 2, "split": "train", "value": 20.4}
+{"device_id": "sensor-b", "event_id": "evt-003", "event_type": "reading", "observed_at": "2026-01-01T00:02:30Z", "sequence": 1, "split": "train", "value": 18.9}
+{"device_id": "sensor-a", "event_id": "evt-004", "event_type": "reading", "observed_at": "2026-01-01T00:03:10Z", "sequence": 3, "split": "validation", "value": 20.8}
+{"device_id": "sensor-a", "event_id": "evt-005", "event_type": "reading", "observed_at": "2026-01-01T00:04:10Z", "sequence": 4, "split": "test", "value": 21.0}
