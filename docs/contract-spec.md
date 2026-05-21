@@ -1,6 +1,25 @@
 # Replay Dataset Contract Specification
 
-This document describes schema version `1.0` for Replay Contract Kit manifests.
+This document describes manifest schema version `1.0` for Replay Contract Kit.
+
+A replay contract has three goals:
+
+1. make event ordering explicit,
+2. make train/validation/test split boundaries auditable,
+3. make local replay outputs discoverable and verifiable.
+
+## Manifest location and path rules
+
+A manifest is a JSON file stored inside a dataset directory. Relative paths are resolved from the manifest's parent directory.
+
+The validator rejects:
+
+- absolute paths,
+- paths that escape the dataset directory with `..`,
+- unsupported event formats,
+- missing required manifest fields.
+
+These path rules keep fixtures portable across machines and safe to share publicly.
 
 ## Required manifest fields
 
@@ -48,6 +67,17 @@ If a split field is configured:
 5. Declared split windows must not overlap.
 6. If `allow_entity_overlap` is `false`, an entity may appear in only one split.
 
+Timestamps may use ISO-8601 text with an explicit offset, a trailing `Z`, naive ISO-8601 text, or Unix timestamps. Naive ISO-8601 timestamps are interpreted as UTC so mixed fixture styles do not crash comparisons.
+
+Split windows use inclusive starts and exclusive ends. This convention makes adjacent windows safe:
+
+```json
+{
+  "train": {"start": "2026-01-01T00:00:00Z", "end": "2026-01-02T00:00:00Z"},
+  "validation": {"start": "2026-01-02T00:00:00Z", "end": "2026-01-03T00:00:00Z"}
+}
+```
+
 ## Artifact rules
 
 Artifacts are optional contracts for local replay outputs. Each artifact declares a relative `path`, whether it is `required`, and optional top-level JSON `fields`.
@@ -62,4 +92,24 @@ Artifacts are optional contracts for local replay outputs. Each artifact declare
 }
 ```
 
-The validator rejects absolute paths and paths that escape the dataset root.
+The validator checks that required artifacts exist. If `fields` are declared, the artifact must be a JSON object containing those top-level keys.
+
+## Validation report shape
+
+CLI commands and the Python API return a stable report shape:
+
+```json
+{
+  "passed": true,
+  "checks": 45,
+  "rows_read": 5,
+  "failures": [],
+  "warnings": []
+}
+```
+
+Failures and warnings include a machine-readable `code`, a human-readable `message`, and, when available, `row_number` and `context` fields.
+
+## What this contract does not do
+
+Replay Contract Kit does not fetch remote data, run simulations, place orders, call live services, or infer a domain-specific schema. It validates local files against the manifest you provide.

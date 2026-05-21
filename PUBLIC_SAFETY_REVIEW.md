@@ -18,8 +18,8 @@ Reviewed the local public-candidate repository for public-facing readiness befor
 ## Results
 
 - No credential markers, tokens, private keys, or high-entropy secret-like strings found.
-- No `allthingstrading` references found in public-facing repository content.
-- No `/home/azucar` paths or private usernames found.
+- No internal workspace-name references found in public-facing repository content.
+- No machine-local home paths or private usernames found.
 - Included example dataset is synthetic sensor telemetry.
 - License is MIT.
 - Package metadata is generic and domain-neutral.
