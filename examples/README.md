@@ -31,13 +31,40 @@ uv run replay-contract validate-dataset examples/synthetic_event_dataset/manifes
 
 Expected result: `passed` is `true`, `rows_read` is `5`, and the failures list is empty.
 
+## `synthetic_csv_dataset/`
+
+A four-row CSV dataset that models generic workflow case events.
+
+```text
+synthetic_csv_dataset/
+├── manifest.json
+├── events.csv
+└── artifacts/
+    └── replay_summary.json
+```
+
+The fixture demonstrates:
+
+- CSV input with `event_format: "csv"`,
+- a workflow-style entity key (`case_id`),
+- per-case step ordering,
+- non-overlapping train/validation/test windows,
+- `allow_entity_overlap: false`,
+- and a required replay summary artifact.
+
+Validate it with:
+
+```bash
+uv run replay-contract validate-dataset examples/synthetic_csv_dataset/manifest.json
+```
+
+Expected result: `passed` is `true`, `rows_read` is `4`, and the failures list is empty.
+
 ## Adding more examples
 
 Keep examples synthetic, compact, and deterministic. A good example should teach one idea at a time, such as:
 
-- CSV input format,
 - multi-field entity keys,
-- strict no-entity-overlap splits,
 - optional artifacts,
 - or a deliberately invalid fixture for test coverage.
 

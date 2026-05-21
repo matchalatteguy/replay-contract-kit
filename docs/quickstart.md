@@ -48,7 +48,15 @@ Exit codes are stable for automation:
 - `1`: the manifest parsed, but contract failures were found,
 - `2`: the manifest or input file could not be parsed/read.
 
-## 4. Debug one contract layer at a time
+## 4. Validate the CSV fixture
+
+```bash
+uv run replay-contract validate-dataset examples/synthetic_csv_dataset/manifest.json
+```
+
+This fixture uses the same contract model with `event_format: "csv"`, workflow-style fields, and `allow_entity_overlap: false`.
+
+## 5. Debug one contract layer at a time
 
 ```bash
 uv run replay-contract validate-manifest examples/synthetic_event_dataset/manifest.json
@@ -59,7 +67,7 @@ uv run replay-contract check-artifacts examples/synthetic_event_dataset/manifest
 
 Use this sequence when adapting a new dataset: fix manifest problems first, then event ordering, then split leakage, then artifact declarations.
 
-## 5. Adapt to your own dataset
+## 6. Adapt to your own dataset
 
 Create a dataset folder with:
 
@@ -78,7 +86,7 @@ Point `event_file` and artifact paths to relative paths under that folder. Keep 
 
 For a fuller checklist, see `docs/adapting-your-dataset.md`.
 
-## 6. Run project checks before contributing
+## 7. Run project checks before contributing
 
 ```bash
 uv run --extra dev pytest -q

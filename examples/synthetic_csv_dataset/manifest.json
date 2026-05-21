@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "dataset_id": "synthetic-workflow-csv-demo",
+  "event_file": "events.csv",
+  "event_format": "csv",
+  "event_time_field": "created_at",
+  "sequence_field": "step_number",
+  "entity_keys": [
+    "case_id"
+  ],
+  "event_id_field": "event_id",
+  "split_field": "split",
+  "allow_entity_overlap": false,
+  "splits": {
+    "train": {
+      "start": "2026-02-01T00:00:00Z",
+      "end": "2026-02-01T00:10:00Z"
+    },
+    "validation": {
+      "start": "2026-02-01T00:10:00Z",
+      "end": "2026-02-01T00:15:00Z"
+    },
+    "test": {
+      "start": "2026-02-01T00:15:00Z",
+      "end": "2026-02-01T00:20:00Z"
+    }
+  },
+  "artifacts": {
+    "summary": {
+      "path": "artifacts/replay_summary.json",
+      "required": true,
+      "fields": [
+        "dataset_id",
+        "rows_processed",
+        "status"
+      ]
+    }
+  }
+}

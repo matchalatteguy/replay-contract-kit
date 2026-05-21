@@ -56,6 +56,8 @@ For each entity stream:
 
 These checks catch the most common reasons that a replay dataset cannot be deterministically consumed: missing ordering fields, duplicate messages, out-of-order updates, and malformed timestamps.
 
+For CSV inputs, all values are read as text. Sequence values still must parse as integers, and timestamp fields follow the same ISO-8601/Unix timestamp rules as JSON Lines rows.
+
 ## Split rules
 
 If a split field is configured:

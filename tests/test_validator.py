@@ -4,6 +4,7 @@ from replay_contract_kit.manifest import load_manifest, parse_manifest
 from replay_contract_kit.validator import validate_dataset, validate_events
 
 FIXTURE = Path(__file__).parents[1] / "examples" / "synthetic_event_dataset" / "manifest.json"
+CSV_FIXTURE = Path(__file__).parents[1] / "examples" / "synthetic_csv_dataset" / "manifest.json"
 
 
 def _manifest(tmp_path, **overrides):
@@ -27,6 +28,13 @@ def test_validate_dataset_passes_synthetic_fixture():
 
     assert report.passed, report.to_dict()
     assert report.rows_read == 5
+
+
+def test_validate_dataset_passes_csv_fixture():
+    report = validate_dataset(load_manifest(CSV_FIXTURE))
+
+    assert report.passed, report.to_dict()
+    assert report.rows_read == 4
 
 
 def test_validate_events_catches_duplicate_event_id(tmp_path):

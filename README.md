@@ -40,7 +40,7 @@ uv run replay-contract --help
 
 ## First 5 minutes
 
-Validate the included synthetic dataset:
+Validate the included synthetic JSON Lines dataset:
 
 ```bash
 uv run replay-contract validate-dataset examples/synthetic_event_dataset/manifest.json
@@ -57,6 +57,14 @@ Expected output:
   "warnings": []
 }
 ```
+
+Validate the included synthetic CSV workflow fixture as a second format smoke test:
+
+```bash
+uv run replay-contract validate-dataset examples/synthetic_csv_dataset/manifest.json
+```
+
+Expected output has `passed: true` and `rows_read: 4`.
 
 Try the focused checks when you want to debug one layer of the contract:
 
@@ -132,7 +140,8 @@ if not report.passed:
 │   └── quickstart.md              # CLI walkthrough
 ├── examples/
 │   ├── README.md                  # Fixture tour
-│   └── synthetic_event_dataset/   # Synthetic JSONL dataset + artifact
+│   ├── synthetic_event_dataset/   # Synthetic JSONL dataset + artifact
+│   └── synthetic_csv_dataset/     # Synthetic CSV workflow dataset + artifact
 ├── src/replay_contract_kit/       # Library and CLI implementation
 └── tests/                         # Pytest coverage for manifest, split, CLI, and validator behavior
 ```

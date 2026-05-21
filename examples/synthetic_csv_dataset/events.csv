@@ -1,0 +1,5 @@
+case_id,event_id,step_number,created_at,split,status
+case-alpha,csv-001,1,2026-02-01T00:00:00Z,train,opened
+case-alpha,csv-002,2,2026-02-01T00:05:00Z,train,triaged
+case-beta,csv-003,1,2026-02-01T00:10:00Z,validation,opened
+case-gamma,csv-004,1,2026-02-01T00:15:00Z,test,opened
