@@ -60,12 +60,36 @@ uv run replay-contract validate-dataset examples/synthetic_csv_dataset/manifest.
 
 Expected result: `passed` is `true`, `rows_read` is `4`, and the failures list is empty.
 
+## `invalid_cases/`
+
+Intentionally broken JSON Lines fixtures with expected issue codes.
+
+```text
+invalid_cases/
+├── README.md
+└── duplicate_and_sequence/
+    ├── manifest.json
+    └── events.jsonl
+```
+
+Validate the duplicate/sequence case with:
+
+```bash
+uv run replay-contract validate-dataset examples/invalid_cases/duplicate_and_sequence/manifest.json
+```
+
+Expected result: the command exits with status `1`; `passed` is `false`; failures include `phase: "events"`, `code: "duplicate_event"`, and `code: "non_monotonic_sequence"`.
+
+These fixtures are useful when learning how report data points back to the source row that needs repair. They should remain invalid.
+
 ## Adding more examples
 
 Keep examples synthetic, compact, and deterministic. A good example should teach one idea at a time, such as:
 
 - multi-field entity keys,
 - optional artifacts,
-- or a deliberately invalid fixture for test coverage.
+- split-window boundary behavior,
+- missing artifact fields,
+- or another deliberately invalid fixture with expected issue codes.
 
 Do not add live credentials, account identifiers, private hostnames, local absolute paths, or data copied from production systems.

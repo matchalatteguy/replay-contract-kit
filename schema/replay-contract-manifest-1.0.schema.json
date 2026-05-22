@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/replay-contract-kit/schema/replay-contract-manifest-1.0.schema.json",
+  "title": "Replay Contract Kit manifest v1.0",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "dataset_id",
+    "event_file",
+    "event_format",
+    "event_time_field",
+    "sequence_field",
+    "entity_keys"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "dataset_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$",
+      "description": "Portable dataset slug used in reports and artifacts."
+    },
+    "event_file": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Path to the JSONL or CSV event file, relative to the manifest directory. Absolute paths and '..' escapes are rejected by the parser."
+    },
+    "event_format": {"enum": ["jsonl", "csv"]},
+    "event_time_field": {"type": "string", "minLength": 1},
+    "sequence_field": {"type": "string", "minLength": 1},
+    "entity_keys": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "event_id_field": {"type": "string", "minLength": 1},
+    "split_field": {"type": "string", "minLength": 1},
+    "allow_entity_overlap": {"type": "boolean", "default": true},
+    "splits": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "start": {"type": "string", "minLength": 1, "description": "Inclusive ISO-8601 or Unix timestamp boundary."},
+          "end": {"type": "string", "minLength": 1, "description": "Exclusive ISO-8601 or Unix timestamp boundary."}
+        }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["path"],
+        "properties": {
+          "path": {"type": "string", "minLength": 1},
+          "required": {"type": "boolean", "default": true},
+          "fields": {
+            "type": "array",
+            "items": {"type": "string", "minLength": 1},
+            "default": []
+          }
+        }
+      }
+    }
+  }
+}

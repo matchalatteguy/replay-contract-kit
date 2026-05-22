@@ -60,6 +60,19 @@ class DatasetManifest:
 
         return safe_join(self.root, self.event_file)
 
+    def artifact_path(self, name: str) -> Path:
+        """Return the resolved path for a declared artifact.
+
+        This keeps consumers from reimplementing manifest-relative path handling
+        and preserves the same containment checks used by the built-in validator.
+        """
+
+        try:
+            artifact = self.artifacts[name]
+        except KeyError as exc:
+            raise ManifestError(f"unknown artifact: {name!r}") from exc
+        return safe_join(self.root, artifact.path)
+
 
 def load_manifest(path: Path | str) -> DatasetManifest:
     """Load and validate a manifest JSON file."""
@@ -146,7 +159,7 @@ def parse_manifest(data: dict[str, Any], *, root: Path | str) -> DatasetManifest
         split_field=split_field,
         splits=splits,
         artifacts=artifacts,
-        allow_entity_overlap=bool(data.get("allow_entity_overlap", True)),
+        allow_entity_overlap=_bool(data.get("allow_entity_overlap", True), "allow_entity_overlap"),
         raw=dict(data),
     )
 
@@ -201,7 +214,7 @@ def _parse_artifacts(value: Any) -> dict[str, ArtifactSpec]:
             raise ManifestError(f"artifact {artifact_name!r} fields must be a list")
         parsed[artifact_name] = ArtifactSpec(
             path=_string(spec["path"], f"artifacts.{artifact_name}.path"),
-            required=bool(spec.get("required", True)),
+            required=_bool(spec.get("required", True), f"artifacts.{artifact_name}.required"),
             fields=tuple(
                 _string(item, f"artifacts.{artifact_name}.fields[]") for item in fields_value
             ),
@@ -212,4 +225,10 @@ def _parse_artifacts(value: Any) -> dict[str, ArtifactSpec]:
 def _string(value: Any, name: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ManifestError(f"{name} must be a non-empty string")
+    return value
+
+
+def _bool(value: Any, name: str) -> bool:
+    if not isinstance(value, bool):
+        raise ManifestError(f"{name} must be a boolean")
     return value

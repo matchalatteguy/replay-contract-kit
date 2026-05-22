@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from replay_contract_kit.errors import ArtifactContractError, ManifestError, SequenceContractError
-from replay_contract_kit.manifest import DatasetManifest, safe_join
+from replay_contract_kit.manifest import DatasetManifest
 from replay_contract_kit.splits import validate_splits
 
 
@@ -24,9 +24,23 @@ class ValidationIssue:
     message: str
     row_number: int | None = None
     context: dict[str, Any] = field(default_factory=dict)
+    phase: str | None = None
+
+    def with_phase(self, phase: str) -> ValidationIssue:
+        """Return this issue annotated with the validation phase that produced it."""
+
+        return ValidationIssue(
+            code=self.code,
+            message=self.message,
+            row_number=self.row_number,
+            context=self.context,
+            phase=phase,
+        )
 
     def to_dict(self) -> dict[str, Any]:
         data: dict[str, Any] = {"code": self.code, "message": self.message}
+        if self.phase is not None:
+            data["phase"] = self.phase
         if self.row_number is not None:
             data["row_number"] = self.row_number
         if self.context:
@@ -61,8 +75,16 @@ def validate_dataset(manifest: DatasetManifest) -> ValidationReport:
     sequence_report = validate_events(event_rows, manifest)
     split_report = validate_splits(event_rows, manifest)
     artifact_report = validate_artifacts(manifest)
-    failures = (*sequence_report.failures, *split_report.failures, *artifact_report.failures)
-    warnings = (*sequence_report.warnings, *split_report.warnings, *artifact_report.warnings)
+    failures = (
+        *(_with_phase(sequence_report.failures, "events")),
+        *(_with_phase(split_report.failures, "splits")),
+        *(_with_phase(artifact_report.failures, "artifacts")),
+    )
+    warnings = (
+        *(_with_phase(sequence_report.warnings, "events")),
+        *(_with_phase(split_report.warnings, "splits")),
+        *(_with_phase(artifact_report.warnings, "artifacts")),
+    )
     return ValidationReport(
         passed=not failures,
         checks=sequence_report.checks + split_report.checks + artifact_report.checks,
@@ -176,7 +198,7 @@ def validate_artifacts(manifest: DatasetManifest) -> ValidationReport:
     checks = 0
     for name, artifact in manifest.artifacts.items():
         checks += 1
-        path = safe_join(manifest.root, artifact.path)
+        path = manifest.artifact_path(name)
         if not path.exists():
             if artifact.required:
                 failures.append(
@@ -231,6 +253,10 @@ def validate_artifacts(manifest: DatasetManifest) -> ValidationReport:
     return ValidationReport(
         passed=not failures, checks=checks, failures=tuple(failures), warnings=tuple(warnings)
     )
+
+
+def _with_phase(issues: tuple[ValidationIssue, ...], phase: str) -> tuple[ValidationIssue, ...]:
+    return tuple(issue if issue.phase is not None else issue.with_phase(phase) for issue in issues)
 
 
 def load_event_rows(path: Path, *, event_format: str) -> list[dict[str, Any]]:

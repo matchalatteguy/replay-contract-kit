@@ -1,0 +1,3 @@
+{"event_id":"evt-001","device_id":"sensor-a","sequence":1,"observed_at":"2026-01-01T00:00:00Z","split":"train"}
+{"event_id":"evt-001","device_id":"sensor-a","sequence":2,"observed_at":"2026-01-01T00:01:00Z","split":"validation"}
+{"event_id":"evt-003","device_id":"sensor-a","sequence":1,"observed_at":"2026-01-01T00:02:00Z","split":"validation"}

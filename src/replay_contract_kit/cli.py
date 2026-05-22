@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
 from replay_contract_kit.errors import ReplayContractError
@@ -18,8 +19,22 @@ from replay_contract_kit.validator import (
 )
 
 
+def _package_version() -> str:
+    try:
+        return version("replay-contract-kit")
+    except PackageNotFoundError:
+        return "0.0.0+local"
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="replay-contract", description=__doc__)
+    parser.add_argument("--version", action="version", version=f"%(prog)s {_package_version()}")
+    parser.add_argument(
+        "--format",
+        choices=("json", "human"),
+        default="json",
+        help="output format for successful validation reports (default: json)",
+    )
     subcommands = parser.add_subparsers(dest="command", required=True)
 
     manifest_parser = subcommands.add_parser(
@@ -70,8 +85,36 @@ def main(argv: list[str] | None = None) -> int:
         payload = {"passed": False, "error": type(exc).__name__, "message": str(exc)}
         print(json.dumps(payload, indent=2, sort_keys=True), file=sys.stderr)
         return 2
-    print(json.dumps(payload, indent=2, sort_keys=True))
+    if args.format == "human":
+        print(_format_human(payload))
+    else:
+        print(json.dumps(payload, indent=2, sort_keys=True))
     return 0 if payload.get("passed") else 1
+
+
+def _format_human(payload: dict[str, object]) -> str:
+    status = "PASS" if payload.get("passed") else "FAIL"
+    lines = [
+        f"{status}: {payload.get('checks', 0)} checks, "
+        f"{payload.get('rows_read', 0)} rows read"
+    ]
+    failures = payload.get("failures")
+    if isinstance(failures, list) and failures:
+        lines.append("Failures:")
+        for issue in failures:
+            if not isinstance(issue, dict):
+                continue
+            phase = f"[{issue['phase']}] " if issue.get("phase") else ""
+            row = f" row {issue['row_number']}:" if issue.get("row_number") is not None else ":"
+            lines.append(f"- {phase}{issue.get('code')}{row} {issue.get('message')}")
+    warnings = payload.get("warnings")
+    if isinstance(warnings, list) and warnings:
+        lines.append("Warnings:")
+        for issue in warnings:
+            if isinstance(issue, dict):
+                phase = f"[{issue['phase']}] " if issue.get("phase") else ""
+                lines.append(f"- {phase}{issue.get('code')}: {issue.get('message')}")
+    return "\n".join(lines)
 
 
 if __name__ == "__main__":

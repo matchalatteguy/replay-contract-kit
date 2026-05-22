@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0",
+  "dataset_id": "invalid-duplicate-sequence-demo",
+  "event_file": "events.jsonl",
+  "event_format": "jsonl",
+  "event_time_field": "observed_at",
+  "sequence_field": "sequence",
+  "entity_keys": ["device_id"],
+  "event_id_field": "event_id",
+  "split_field": "split",
+  "allow_entity_overlap": true,
+  "splits": {
+    "train": {"start": "2026-01-01T00:00:00Z", "end": "2026-01-01T00:01:00Z"},
+    "validation": {"start": "2026-01-01T00:01:00Z", "end": "2026-01-01T00:03:00Z"}
+  }
+}

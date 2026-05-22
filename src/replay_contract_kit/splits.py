@@ -5,12 +5,17 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Iterable
 from datetime import datetime, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from replay_contract_kit.manifest import DatasetManifest
 
+if TYPE_CHECKING:
+    from replay_contract_kit.validator import ValidationReport
 
-def validate_splits(rows: Iterable[dict[str, Any]], manifest: DatasetManifest):
+
+def validate_splits(
+    rows: Iterable[dict[str, Any]], manifest: DatasetManifest
+) -> ValidationReport:
     """Validate split row overlap, optional entity leakage, and time windows."""
 
     from replay_contract_kit.validator import ValidationIssue, ValidationReport
