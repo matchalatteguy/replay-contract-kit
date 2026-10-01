@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from replay_contract_kit.errors import ManifestError, PathEscapeError
+from replay_contract_kit.values import parse_time, strict_json
 
 SUPPORTED_SCHEMA_VERSIONS = {"1.0"}
 SUPPORTED_EVENT_FORMATS = {"jsonl", "csv"}
@@ -79,10 +79,10 @@ def load_manifest(path: Path | str) -> DatasetManifest:
 
     manifest_path = Path(path).resolve()
     try:
-        data = json.loads(manifest_path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
+        data = strict_json(manifest_path.read_text(encoding="utf-8"))
+    except ValueError as exc:
         raise ManifestError(f"manifest is not valid JSON: {exc}") from exc
-    except OSError as exc:
+    except (OSError, UnicodeError) as exc:
         raise ManifestError(f"manifest could not be read: {exc}") from exc
     if not isinstance(data, dict):
         raise ManifestError("manifest root must be a JSON object")
@@ -91,6 +91,9 @@ def load_manifest(path: Path | str) -> DatasetManifest:
 
 def parse_manifest(data: dict[str, Any], *, root: Path | str) -> DatasetManifest:
     """Parse a manifest object into a typed ``DatasetManifest``."""
+
+    if not isinstance(data, dict):
+        raise ManifestError("manifest root must be a JSON object")
 
     required = [
         "schema_version",
@@ -116,7 +119,7 @@ def parse_manifest(data: dict[str, Any], *, root: Path | str) -> DatasetManifest
             "dashes, or underscores"
         )
 
-    event_format = _string(data["event_format"], "event_format").lower()
+    event_format = _string(data["event_format"], "event_format")
     if event_format not in SUPPORTED_EVENT_FORMATS:
         raise ManifestError(f"event_format must be one of: {sorted(SUPPORTED_EVENT_FORMATS)}")
 
@@ -124,13 +127,15 @@ def parse_manifest(data: dict[str, Any], *, root: Path | str) -> DatasetManifest
     if not isinstance(entity_keys_value, list) or not entity_keys_value:
         raise ManifestError("entity_keys must be a non-empty list of field names")
     entity_keys = tuple(_string(value, "entity_keys[]") for value in entity_keys_value)
+    if len(entity_keys) != len(set(entity_keys)):
+        raise ManifestError("entity_keys must contain distinct field names")
 
     split_field = data.get("split_field")
-    if split_field is not None:
+    if "split_field" in data:
         split_field = _string(split_field, "split_field")
 
     event_id_field = data.get("event_id_field")
-    if event_id_field is not None:
+    if "event_id_field" in data:
         event_id_field = _string(event_id_field, "event_id_field")
 
     splits = _parse_splits(data.get("splits", {}))
@@ -167,6 +172,8 @@ def parse_manifest(data: dict[str, Any], *, root: Path | str) -> DatasetManifest
 def safe_join(root: Path, relative_path: str) -> Path:
     """Resolve ``relative_path`` under ``root`` and reject absolute or escaping paths."""
 
+    if "\x00" in relative_path:
+        raise PathEscapeError("paths cannot contain null bytes")
     candidate_raw = Path(relative_path)
     if candidate_raw.is_absolute():
         raise PathEscapeError(f"absolute paths are not allowed: {relative_path!r}")
@@ -179,8 +186,6 @@ def safe_join(root: Path, relative_path: str) -> Path:
 
 
 def _parse_splits(value: Any) -> dict[str, SplitWindow]:
-    if value in ({}, None):
-        return {}
     if not isinstance(value, dict):
         raise ManifestError("splits must be an object")
     parsed: dict[str, SplitWindow] = {}
@@ -190,16 +195,18 @@ def _parse_splits(value: Any) -> dict[str, SplitWindow]:
             raise ManifestError(f"split {split_name!r} must be an object")
         start = window_value.get("start")
         end = window_value.get("end")
-        parsed[split_name] = SplitWindow(
-            start=_string(start, f"splits.{split_name}.start") if start is not None else None,
-            end=_string(end, f"splits.{split_name}.end") if end is not None else None,
-        )
+        for boundary in ("start", "end"):
+            if boundary in window_value:
+                text = _string(window_value[boundary], f"splits.{split_name}.{boundary}")
+                if parse_time(text) is None:
+                    raise ManifestError(
+                        f"splits.{split_name}.{boundary} must be an ISO timestamp or Unix seconds"
+                    )
+        parsed[split_name] = SplitWindow(start=start, end=end)
     return parsed
 
 
 def _parse_artifacts(value: Any) -> dict[str, ArtifactSpec]:
-    if value in ({}, None):
-        return {}
     if not isinstance(value, dict):
         raise ManifestError("artifacts must be an object")
     parsed: dict[str, ArtifactSpec] = {}

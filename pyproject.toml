@@ -1,11 +1,11 @@
 [project]
 name = "replay-contract-kit"
-version = "0.1.0"
+version = "0.2.0"
 description = "Schema and validation tools for deterministic event replay datasets."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
-authors = [{ name = "Replay Contract Kit maintainers" }]
+authors = [{ name = "matchalatteguy" }]
 keywords = ["dataset", "replay", "validation", "contracts", "cli"]
 classifiers = [
   "Development Status :: 3 - Alpha",
@@ -22,7 +22,11 @@ classifiers = [
 dependencies = []
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "ruff>=0.5"]
+dev = ["build>=1.2", "jsonschema>=4.23", "pytest>=8", "ruff>=0.5"]
+
+[project.urls]
+Homepage = "https://github.com/matchalatteguy/replay-contract-kit"
+Issues = "https://github.com/matchalatteguy/replay-contract-kit/issues"
 
 [project.scripts]
 replay-contract = "replay_contract_kit.cli:main"
