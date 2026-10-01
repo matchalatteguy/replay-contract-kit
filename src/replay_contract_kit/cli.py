@@ -95,8 +95,7 @@ def main(argv: list[str] | None = None) -> int:
 def _format_human(payload: dict[str, object]) -> str:
     status = "PASS" if payload.get("passed") else "FAIL"
     lines = [
-        f"{status}: {payload.get('checks', 0)} checks, "
-        f"{payload.get('rows_read', 0)} rows read"
+        f"{status}: {payload.get('checks', 0)} checks, {payload.get('rows_read', 0)} rows read"
     ]
     failures = payload.get("failures")
     if isinstance(failures, list) and failures:

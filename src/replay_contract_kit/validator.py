@@ -3,17 +3,16 @@
 from __future__ import annotations
 
 import csv
-import hashlib
-import json
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from replay_contract_kit.errors import ArtifactContractError, ManifestError, SequenceContractError
 from replay_contract_kit.manifest import DatasetManifest
 from replay_contract_kit.splits import validate_splits
+from replay_contract_kit.values import event_identity, parse_time, scalar_identifier, strict_json
 
 
 @dataclass(frozen=True)
@@ -130,6 +129,20 @@ def validate_events(rows: Iterable[dict[str, Any]], manifest: DatasetManifest) -
         ):
             continue
 
+        identity_fields = [*manifest.entity_keys]
+        if manifest.event_id_field:
+            identity_fields.append(manifest.event_id_field)
+        invalid = [name for name in identity_fields if not scalar_identifier(row[name])]
+        if invalid:
+            failures.append(
+                ValidationIssue(
+                    "invalid_identity",
+                    "identity fields must be non-empty scalar strings or numbers",
+                    row_number=row_number,
+                    context={"fields": invalid},
+                )
+            )
+            continue
         sequence = _coerce_sequence(row[manifest.sequence_field], row_number, failures)
         event_time = _coerce_time(row[manifest.event_time_field], row_number, failures)
         entity_key = tuple(row[key] for key in manifest.entity_keys)
@@ -217,11 +230,20 @@ def validate_artifacts(manifest: DatasetManifest) -> ValidationReport:
                     )
                 )
             continue
+        if not path.is_file():
+            failures.append(
+                ValidationIssue(
+                    "artifact_not_file",
+                    f"artifact {name!r} must be a file",
+                    context={"path": artifact.path},
+                )
+            )
+            continue
         if artifact.fields:
             checks += 1
             try:
-                payload = json.loads(path.read_text(encoding="utf-8"))
-            except json.JSONDecodeError as exc:
+                payload = strict_json(path.read_text(encoding="utf-8"))
+            except (ValueError, OSError, UnicodeError) as exc:
                 failures.append(
                     ValidationIssue(
                         "artifact_invalid_json",
@@ -267,7 +289,7 @@ def load_event_rows(path: Path, *, event_format: str) -> list[dict[str, Any]]:
             return _load_jsonl(path)
         if event_format == "csv":
             return _load_csv(path)
-    except OSError as exc:
+    except (OSError, UnicodeError, csv.Error) as exc:
         raise ManifestError(f"event file could not be read: {exc}") from exc
     raise ManifestError(f"unsupported event format: {event_format!r}")
 
@@ -278,8 +300,8 @@ def _load_jsonl(path: Path) -> list[dict[str, Any]]:
         if not line.strip():
             continue
         try:
-            payload = json.loads(line)
-        except json.JSONDecodeError as exc:
+            payload = strict_json(line)
+        except ValueError as exc:
             raise SequenceContractError(f"invalid JSON on line {line_number}: {exc}") from exc
         if not isinstance(payload, dict):
             raise SequenceContractError(f"line {line_number} must contain a JSON object")
@@ -289,12 +311,23 @@ def _load_jsonl(path: Path) -> list[dict[str, Any]]:
 
 def _load_csv(path: Path) -> list[dict[str, Any]]:
     with path.open(newline="", encoding="utf-8") as handle:
-        return list(csv.DictReader(handle))
+        reader = csv.DictReader(handle)
+        fields = reader.fieldnames
+        if not fields or any(not field.strip() for field in fields):
+            raise SequenceContractError("CSV must have non-empty column names")
+        if len(fields) != len(set(fields)):
+            raise SequenceContractError("CSV contains duplicate column names")
+        rows = []
+        for line_number, row in enumerate(reader, start=2):
+            if None in row or any(value is None for value in row.values()):
+                raise SequenceContractError(f"CSV row {line_number} has wrong column count")
+            rows.append(row)
+        return rows
 
 
 def _coerce_sequence(value: Any, row_number: int, failures: list[ValidationIssue]) -> int | None:
     try:
-        if isinstance(value, bool):
+        if not isinstance(value, (str, int)) or isinstance(value, bool):
             raise TypeError
         return int(value)
     except (TypeError, ValueError):
@@ -307,17 +340,8 @@ def _coerce_sequence(value: Any, row_number: int, failures: list[ValidationIssue
 
 
 def _coerce_time(value: Any, row_number: int, failures: list[ValidationIssue]) -> datetime | None:
-    try:
-        if isinstance(value, (int, float)):
-            return datetime.fromtimestamp(float(value), tz=timezone.utc)
-        text = str(value)
-        if text.endswith("Z"):
-            text = f"{text[:-1]}+00:00"
-        parsed = datetime.fromisoformat(text)
-        if parsed.tzinfo is None:
-            return parsed.replace(tzinfo=timezone.utc)
-        return parsed.astimezone(timezone.utc)
-    except (TypeError, ValueError, OSError):
+    result = parse_time(value)
+    if result is None:
         failures.append(
             ValidationIssue(
                 "invalid_event_time",
@@ -325,22 +349,19 @@ def _coerce_time(value: Any, row_number: int, failures: list[ValidationIssue]) -
                 row_number=row_number,
             )
         )
-        return None
+    return result
 
 
 def _event_identity(
     row: dict[str, Any], manifest: DatasetManifest, entity_key: tuple[Any, ...]
 ) -> str:
-    if manifest.event_id_field:
-        return str(row[manifest.event_id_field])
-    payload = {
-        "entity": entity_key,
-        "sequence": row.get(manifest.sequence_field),
-        "time": row.get(manifest.event_time_field),
-    }
-    return hashlib.sha256(
-        json.dumps(payload, sort_keys=True, default=str).encode("utf-8")
-    ).hexdigest()
+    return event_identity(
+        row,
+        manifest.entity_keys,
+        manifest.sequence_field,
+        manifest.event_time_field,
+        manifest.event_id_field,
+    )
 
 
 def raise_for_report(report: ValidationReport) -> None:

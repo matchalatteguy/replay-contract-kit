@@ -8,14 +8,13 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 from replay_contract_kit.manifest import DatasetManifest
+from replay_contract_kit.values import event_identity, parse_time, scalar_identifier
 
 if TYPE_CHECKING:
     from replay_contract_kit.validator import ValidationReport
 
 
-def validate_splits(
-    rows: Iterable[dict[str, Any]], manifest: DatasetManifest
-) -> ValidationReport:
+def validate_splits(rows: Iterable[dict[str, Any]], manifest: DatasetManifest) -> ValidationReport:
     """Validate split row overlap, optional entity leakage, and time windows."""
 
     from replay_contract_kit.validator import ValidationIssue, ValidationReport
@@ -36,14 +35,14 @@ def validate_splits(
             break
         split = row.get(manifest.split_field)
         checks += 1
-        if not split:
+        if not isinstance(split, str) or not split.strip():
             failures.append(
                 ValidationIssue(
                     "missing_split", "row is missing split assignment", row_number=row_number
                 )
             )
             continue
-        split_name = str(split)
+        split_name = split
         if manifest.splits and split_name not in manifest.splits:
             failures.append(
                 ValidationIssue(
@@ -55,10 +54,22 @@ def validate_splits(
             )
         row_key = _row_key(row, manifest)
         row_keys_by_split[split_name].add(row_key)
-        if all(key in row for key in manifest.entity_keys):
+        if all(scalar_identifier(row.get(key)) for key in manifest.entity_keys):
             entities_by_split[split_name].add(tuple(row[key] for key in manifest.entity_keys))
-        if manifest.event_time_field in row:
-            event_time = _parse_time(row[manifest.event_time_field])
+        else:
+            failures.append(
+                ValidationIssue(
+                    "invalid_split_entity", "invalid entity identity", row_number=row_number
+                )
+            )
+        if manifest.splits or manifest.event_time_field in row:
+            event_time = _parse_time(row.get(manifest.event_time_field))
+            if event_time is None:
+                failures.append(
+                    ValidationIssue(
+                        "invalid_split_event_time", "invalid event time", row_number=row_number
+                    )
+                )
             if event_time is not None:
                 times_by_split[split_name].append(event_time)
                 window = manifest.splits.get(split_name)
@@ -140,39 +151,31 @@ def _check_declared_window_order(manifest: DatasetManifest, failures: list[Any])
             )
         if start or end:
             windows.append((name, start, end))
-    windows.sort(key=lambda item: item[1] or datetime.min.replace(tzinfo=timezone.utc))
-    for (left_name, _left_start, left_end), (right_name, right_start, _right_end) in zip(
-        windows, windows[1:], strict=False
-    ):
-        if left_end and right_start and left_end > right_start:
-            failures.append(
-                ValidationIssue(
-                    "overlapping_split_windows",
-                    "declared split time windows overlap",
-                    context={"left": left_name, "right": right_name},
+    minimum = datetime.min.replace(tzinfo=timezone.utc)
+    maximum = datetime.max.replace(tzinfo=timezone.utc)
+    for index, (left_name, left_start, left_end) in enumerate(windows):
+        for right_name, right_start, right_end in windows[index + 1 :]:
+            if max(left_start or minimum, right_start or minimum) < min(
+                left_end or maximum, right_end or maximum
+            ):
+                failures.append(
+                    ValidationIssue(
+                        "overlapping_split_windows",
+                        "declared split time windows overlap",
+                        context={"left": left_name, "right": right_name},
+                    )
                 )
-            )
 
 
 def _row_key(row: dict[str, Any], manifest: DatasetManifest) -> str:
-    if manifest.event_id_field and manifest.event_id_field in row:
-        return str(row[manifest.event_id_field])
-    pieces = [str(row.get(key, "")) for key in (*manifest.entity_keys, manifest.sequence_field)]
-    return "|".join(pieces)
+    return event_identity(
+        row,
+        manifest.entity_keys,
+        manifest.sequence_field,
+        manifest.event_time_field,
+        manifest.event_id_field,
+    )
 
 
 def _parse_time(value: Any) -> datetime | None:
-    if value is None:
-        return None
-    try:
-        if isinstance(value, (int, float)):
-            return datetime.fromtimestamp(float(value), tz=timezone.utc)
-        text = str(value)
-        if text.endswith("Z"):
-            text = f"{text[:-1]}+00:00"
-        parsed = datetime.fromisoformat(text)
-        if parsed.tzinfo is None:
-            return parsed.replace(tzinfo=timezone.utc)
-        return parsed.astimezone(timezone.utc)
-    except (TypeError, ValueError, OSError):
-        return None
+    return parse_time(value)
